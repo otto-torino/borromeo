@@ -1,0 +1,233 @@
+/* icons */
+.move {
+  cursor: move;
+}
+.icon {
+  display: inline-block;
+  width: 31px;
+  height: 31px;
+  margin: 0 2px;
+}
+.icon_small {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin: 0 2px;
+}
+.icon_chapter {
+  background: url(../img/icons/ico_add.png) no-repeat center center;
+}
+.icon_chapter:hover{
+  background: url(../img/icons/ico_add_over.png) no-repeat center center;
+}
+.icon_subchapter {
+  background: url(../img/icons/ico_add_small.png) no-repeat center center;
+}
+.icon_subchapter:hover{
+  background: url(../img/icons/ico_add_small_over.png) no-repeat center center;
+}
+.icon_delete {
+  background: url(../img/icons/ico_delete.png) no-repeat center center;
+}
+.icon_delete:hover {
+  background: url(../img/icons/ico_delete_over.png) no-repeat center center;
+}
+.icon_delete_small {
+  background: url(../img/icons/ico_delete_small.png) no-repeat center center;
+}
+.icon_delete_small:hover {
+  background: url(../img/icons/ico_delete_small_over.png) no-repeat center center;
+}
+.icon_sort {
+  background: url(../img/icons/ico_sort.png) no-repeat center center;
+}
+.icon_sort:hover {
+  background: url(../img/icons/ico_sort_over.png) no-repeat center center;
+}
+.icon_sort_small {
+  background: url(../img/icons/ico_sort_small.png) no-repeat center center;
+}
+.icon_sort_small:hover {
+  background: url(../img/icons/ico_sort_small_over.png) no-repeat center center;
+}
+.icon_edit {
+  background: url(../img/icons/ico_edit.png) no-repeat center center;
+}
+.icon_edit:hover {
+  background: url(../img/icons/ico_edit_over.png) no-repeat center center;
+}
+.icon_edit_small {
+  background: url(../img/icons/ico_edit_small.png) no-repeat center center;
+}
+.icon_edit_small:hover {
+  background: url(../img/icons/ico_edit_small_over.png) no-repeat center center;
+}
+
+.icon_add{
+  background: url(../img/icons/ico_add.png) no-repeat center center;
+}
+.icon_add:hover{
+  background: url(../img/icons/ico_add_over.png) no-repeat center center;
+}
+.icon_add_small{
+  background: url(../img/icons/ico_add_small.png) no-repeat center center;
+}
+.icon_add_small:hover{
+  background: url(../img/icons/ico_add_small_over.png) no-repeat center center;
+}
+.icon_merge{
+  background: url(../img/icons/ico_merge.png) no-repeat center center;
+}
+.icon_merge:hover{
+  background: url(../img/icons/ico_merge_over.png) no-repeat center center;
+}
+.icon_note {
+  background: url(../img/icons/ico_note.gif) no-repeat center center;
+}
+.icon_notes {
+  background: url(../img/icons/ico_notes.png) no-repeat center center;
+}
+.icon_notes_over {
+  background: url(../img/icons/ico_notes_over.png) no-repeat center center;
+}
+.icon_index {
+  background: url(../img/icons/ico_index.png) no-repeat center center;
+}
+.icon_index:hover {
+  background: url(../img/icons/ico_index_over.png) no-repeat center center;
+}
+
+#icon_index {
+  position: absolute;
+  right: -43px;
+  top: 0px;
+  padding: 10px 5px;
+  background-color: #fff;
+  border: 1px solid #669966;
+  border-left-width: 0px;
+}
+#icon_notes {
+  position: absolute;
+  left: -43px;
+  top: 0px;
+  padding: 10px 5px;
+  background-color: #fff;
+  border: 1px solid #669966;
+  border-right-width: 0px;
+}
+/*end icons*/
+
+/* side panels */
+.side-panel {
+  z-index: 20;
+  max-width: 300px;
+}
+.side-panel h2 {
+}
+/* end side panels */
+
+/* doc view index */
+#borromeo-doc-index-container {
+   position: absolute; 
+   left: 2px;
+   margin-top: 10px;
+}
+.side-panel section.borromeo-doc-index {
+  border: 1px solid #669966;
+  padding: 10px;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  background-color: #fff;
+  overflow: hidden;
+}
+  .side-panel section h1 {
+    margin: 0 0 5px;
+  }
+  .side-panel section ul {
+    padding-left: 10px;
+    list-style-position: inside;
+    list-style-type: none;
+    min-height: 20px; /* sorting */
+  }
+  .side-panel section > ul > li {
+    font-weight: bold;
+    border-top: 1px dotted #ccc;
+    padding-top: 10px;
+  }
+  .side-panel section > ul > li:first-child {
+    border-top: 0px dotted #ccc;
+  }
+
+
+  .side-panel section li {
+    margin: 5px 0;
+  }
+  .side-panel section ul ul li {
+    margin-right: -5px;
+    padding: 5px;
+    font-weight: normal;
+  }
+/*end doc view index*/
+
+/* doc view annotations */
+#borromeo-doc-notes-container {
+  position: absolute;
+  right: 2px;
+   margin-top: 10px;
+}
+.side-panel section.borromeo-doc-annotations {
+  border: 1px solid #669966;
+  padding: 10px;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  background-color: #fff;
+  overflow: hidden;
+}
+/*end doc view annotations*/
+
+/* doc contents */
+.borromeo-doc-chapter {
+}
+
+.borromeo-doc-subchapter {
+}
+.borromeo-doc-content {
+  margin: 20px 0;
+}
+.mootab {
+  margin-top: 20px;
+}
+
+/* end doc contents */
+
+/* forms */
+.dijitEditor {
+  width: 100% !important;
+}
+
+label[form=form_revision_text][for=text] {
+  display: none;
+}
+
+#form_revision label[for=text] {
+  text-align: left;
+}
+#form_note fieldset label {
+  width: 80px !important;
+}
+legend.link {
+  color: #fff !important;
+}
+
+/* end forms */
+
+
+
+.chapter_icons {
+  display: none;
+}
+.chapter_title:hover .chapter_icons {
+  display: block;
+}
+
+

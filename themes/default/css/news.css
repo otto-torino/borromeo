@@ -1,0 +1,22 @@
+.n_readall {
+	display: none;
+}
+ul.news {
+	list-style-position: outside;
+	list-style-type:none;
+	padding: 0;
+}
+ul.news li {
+	border-bottom: 1px dotted #e1e1e1;
+	margin-bottom: 5px;
+}
+section.news h5 { margin-bottom: 2px;}
+section.news h4 { margin-top: 2px;}
+
+.mra_layer_body {
+	text-align: left;
+}
+
+time + h2 {
+	margin-top: 2px;
+}

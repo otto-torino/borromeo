@@ -1,0 +1,155 @@
+html {
+  text-align: left;
+  color: #666;
+  background: rgb(252, 252, 252);
+}
+body {
+  font: normal normal 75%/200% "Lucida Grande", Lucida, Verdana, Arial;
+}
+body > footer {
+  width: 800px;
+  margin: auto;
+}
+a:link, a:visited, .link {
+  text-decoration: none;
+  cursor: pointer;
+  color: #006600;
+}
+a:hover, .link:hover {
+  cursor: pointer;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #333;
+  font-family: 'Amaranth', sans-serif;
+}
+nav.main_menu {
+  font-family: 'Amaranth', sans-serif;
+  font-size: 1.1em;
+}
+h1 {
+  font-size: 1.4em;
+}
+h2 {
+  font-size: 1.2em;
+}
+h3 {
+  font-size: 1.1em;
+}
+/* HEADER */
+body > header {
+  background: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+body > header > hgroup {
+  display: inline-block;
+}
+body > header > hgroup h1, body > header > hgroup h2 {
+  font-family: 'Amaranth', sans-serif;
+  font-size: 1em;
+  vertical-align: middle;
+  text-align: left;
+  margin: 5px 10px;;
+  color: #333;
+}
+body > header > hgroup > h1 {
+  font-weight: 900;
+  font-size: 2.2em;
+}
+#header_logo {
+  display: inline-block;
+  width: 235px;
+  height: 90px;
+  background: url(../img/logo_header.jpg) no-repeat center center;
+  vertical-align: top;
+}
+body > header > p {
+  float: right;
+  display: inline-block;
+}
+body > header > p > span:first-child {
+  border-right: 1px dotted #ccc;
+  margin: 5px 10px;
+  padding: 0 10px;
+}
+
+/* MENU */
+body > nav {
+  background: #eee;
+}
+
+/* CONTENT */
+#content {
+  box-sizing: border-box;
+  padding: 10px;
+  background: #fff;
+  width: 800px;
+  margin: auto;
+}
+
+/* FOOTER */
+body > footer {
+  text-align: right;
+}
+#powered_otto {
+  display: inline-block;
+  background: url(../img/otto_credits.jpg) no-repeat center center;
+  width: 30px;
+  height: 30px;
+  color: transparent;
+  font-size: 0px;
+}
+
+/* FORM, INPUTS AND BUTTONS */
+
+label {
+  text-align: right;
+  padding-right: 20px;
+  margin-bottom: 20px;
+}
+.form_multicheck td {
+  text-align: left !important;
+}
+
+.button {
+  background: #eee;
+  padding: 2px 5px;
+  border: 1px solid #ccc;
+
+}
+
+fieldset {
+  border: 1px solid #eee;
+  margin: 10px 0;
+}
+legend {
+  background: #669966;
+  color: #fff;
+  padding: 2px 10px;
+}
+input[type=text], input[type=password], input[type=file], textarea {
+  background: -moz-linear-gradient(top, #fff, #eee);
+  border: 2px solid #ccc !important;
+  margin: 10px 0;
+}
+input[id^=dijit] {
+  background: transparent !important;
+  border-width: 0px !important;
+  margin: 0 !important;
+}
+input[type=file] {
+  z-index: 2;
+}
+input[type=submit], input[type=button] {
+  background: #eee;
+  border: 2px solid #ccc;
+  padding: 0px 20px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+.form_multicheck {
+  border: 2px solid #ccc;
+  background: -moz-linear-gradient(top, #fff, #eee);
+}

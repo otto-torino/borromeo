@@ -1,0 +1,59 @@
+html, body {
+  background: #fff;
+}
+header {
+  text-align: center;
+  margin-top: 100px;
+}
+#home_logo {
+  display: inline-block;
+  width: 496px;
+  height: 189px;
+  background: url(../img/logo_splash.jpg) no-repeat center center;
+}
+#content {
+  text-align: center;
+  padding: 5px 0;
+}
+#content p {
+  font-family: 'Amaranth', sans-serif;
+  font-size: 2em;
+}
+#content p:first-child {
+  font-weight: 900;
+  font-size: 4em;
+  line-height: 1em;
+  margin: 0.5em 0;
+}
+section.login {
+  display: inline-block;
+}
+section.login h1 {
+  display: none;
+}
+form {
+  font-size: 1.2em;
+}
+input[type=text], input[type=password] {
+  width: 220px !important;
+  height: 30px;
+  background: -moz-linear-gradient(top, #fff, #eee);
+  border: 2px solid #ccc !important;
+  margin: 10px 0;
+}
+input[type=submit] {
+  background: #eee;
+  border: 2px solid #ccc;
+  padding: 0px 20px;
+  height: 30px;
+  line-height: 30px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+body > footer {
+  text-align: center;
+  margin-top: 10px;
+}
+footer > section {
+  display: inline-block;
+}

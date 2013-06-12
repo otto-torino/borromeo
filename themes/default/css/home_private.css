@@ -1,0 +1,8 @@
+#content {
+  width: 800px;
+  margin: auto;
+}
+body > footer {
+  width: 800px;
+  margin: auto;
+}
