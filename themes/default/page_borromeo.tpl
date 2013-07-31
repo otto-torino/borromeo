@@ -25,8 +25,14 @@
 <div class="side-panel" id="borromeo-doc-notes-container">
   {module:borromeo method:docAnnotations}
 </div>
+<div id="borromeo-doc-controllers">
+  {module:borromeo method:docControllers}
+</div>
 <div id="content">
   {module:url_module method:url_method}
+</div>
+<div id="borromeo-doc-pad-container">
+  {module:borromeo method:docPad}
 </div>
 <footer>
   {module:page method:view params:credits}

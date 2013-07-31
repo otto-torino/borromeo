@@ -25,6 +25,7 @@
  * - **tutor_users** varchar: comma separated list of system users ids with tutor functionality
  * - **author_groups** varchar: comma separated list of system group ids with author functionality
  * - **author_users** varchar: comma separated list of system users ids with author functionality
+ * - **published** boolean: whether the document is public or not
  *
  * @author abidibo abidibo@gmail.com
  * @version 0.1
@@ -50,7 +51,6 @@ class doc extends model {
 
     parent::__construct($id);
 
-    require_once('chapter.php');
     $this->_chapters = chapter::get(array('get_id'=>true, 'where'=>"document='".$this->id."'"));
 
   }
@@ -75,7 +75,7 @@ class doc extends model {
     $controller = new borromeoController();
 
     // user is document administrator or can view all documents
-    if($controller->hasAdminDocPrivilege() or $controller->hasViewDocPrivilege()) {
+    if($controller->hasAdminDocPrivilege() or $this->published) {
       return true;
     }
 
@@ -95,6 +95,10 @@ class doc extends model {
 
   }
 
+  /**
+   * @brief Checks if the user can manage the document (tutor)
+   * @ return true if can view it false otherwise
+   */
   public function canManage() {
 
     $registry = registry::instance();
@@ -185,10 +189,14 @@ class doc extends model {
         'type' => 'datetime',
         'autonow' => true,
         'autonow_add' => true,
+      ),
+      "published"=>array(
+        "type"=>"bool",
+        "required"=>true,
+        "true_label"=>__("yes"),
+        "false_label"=>__("no")	
       )
     );
-
-    require_once('docAdminTable.php');
 
     if(!$controller->hasAdminDocPrivilege()) {
       $permission = 'create';
@@ -264,6 +272,8 @@ class doc extends model {
       error::raise(404);
     }
 
+    $path = $this->path();
+
     $controller = new borromeoController();
 
     // user is not document administrator
@@ -271,19 +281,18 @@ class doc extends model {
       error:raise403();
     }
 
-    require_once('chapter.php');
-
     foreach($this->_chapters as $chapter_id) {
       $chapter = new chapter($chapter_id);
       $chapter->delete();
     }
 
     $this->deleteData();
+    deleteDirectory($path);
 
   }
 
   /**
-   * @brief Deletesa set of documents
+   * @brief Deletes a set of documents
    * @param registry $registry the registry singleton
    * @param array $docs_id the array of id of documents that have to be deleted
    */

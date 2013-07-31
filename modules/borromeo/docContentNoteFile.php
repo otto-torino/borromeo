@@ -128,7 +128,6 @@ class docContentNoteFile extends model {
    */
   public function delete() {
 
-    require_once('docContentNote.php');
     $note = new docContentNote($this->note);
 
     $path = $note->content()->path();

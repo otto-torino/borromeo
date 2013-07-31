@@ -127,8 +127,6 @@ class docContentRevision extends model {
    */
   public function content() {
 
-    require_once('docContent.php');
-
     return new docContent($this->content);
 
   }
@@ -159,23 +157,6 @@ class docContentRevision extends model {
     if(!$this->content()->subchapter()->chapter()->doc()->canManage()) {
       error::raise403();
     }
-
-    // delete all associated media records
-    foreach($this->_controller->media() as $classname) {
-      require_once($classname.'.php');
-      $ms = $classname::getFromRevision($this->id);
-      foreach($ms as $m) {
-        $m->delete();
-      }
-    }
-
-    /*
-     * delete upload folder
-     * files may be deleted because revisions can't be deleted singularly,
-     * the deletion of a revision is caused by the deletion of an entire chapter, so that
-     * all files will be deleted and paths are no longer useful
-     */
-    deleteDirectory($this->path());
 
     // delete db record
     $this->deleteData();

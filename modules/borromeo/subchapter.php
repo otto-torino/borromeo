@@ -42,10 +42,8 @@ class subchapter extends model {
 
     parent::__construct($id);
 
-    require_once('docContent.php');
-
     $contents = docContent::get(array('where'=>"subchapter='".$this->id."'"));
-    $this->_content = ($contents and count($contents)) ? $contents[0] : null;
+    $this->_content = ($contents and count($contents)) ? $contents[0] : new docContent(null);
 
   }
 
@@ -62,8 +60,6 @@ class subchapter extends model {
    * @return chapter object
    */
   public function chapter() {
-
-    require_once('chapter.php');
 
     return new chapter($this->chapter);
 
@@ -98,13 +94,32 @@ class subchapter extends model {
   }
 
   /**
+   * @brief Subchapter visualization url
+   * @return relative url
+   */
+  public function getUrl() {
+    return $this->_registry->router->linkHref('borromeo', 'doc', array(
+      'id' => $this->chapter()->doc()->id,
+      'chapter' => $this->chapter()->id,
+      'subchapter' => $this->id
+    ));
+  }
+
+  /**
+   * @brief Uploaded files path
+   */
+  public function path() {
+
+    return ABS_UPLOAD.DS.'doc'.DS.$this->chapter()->doc()->id.DS.$this->chapter()->id.DS.$this->id;
+
+  }
+
+  /**
    * @brief Defines the adminTable instance for the chapter
    * @param chapter $chapter the chapter object
    * @return the adminTable instance
    */
   public static function adminTable($chapter) {
-
-    require_once(dirname(__FILE__).DS.'subchapterAdminTable.php');
 
     $s_fields = array(
       "chapter"=>array(
@@ -147,6 +162,54 @@ class subchapter extends model {
 
     return $at;
 
+  }
+
+  /**
+   * @brief Gets the previous subchapter inside the same chapter
+   * @return null or the previous subchapter
+   */
+  public function getPrevious() {
+
+    $rows = $this->_registry->db->autoSelect('id', TBL_B_DOC_SUBCHAPTER, "chapter='".$this->chapter."' AND position<'".$this->position."'", 'position DESC', array(0, 1));
+    if($rows and count($rows)) {
+      return new subchapter($rows[0]['id']);
+    }
+
+    $rows_chapter = $this->_registry->db->autoSelect('id', TBL_B_DOC_CHAPTER, "document='".$this->chapter()->doc()->id."' AND position<'".$this->chapter()->position."'", 'position DESC');
+    if($rows_chapter and count($rows_chapter)) {
+      foreach($rows_chapter as $rowc) {
+        $rows = $this->_registry->db->autoSelect('id', TBL_B_DOC_SUBCHAPTER, "chapter='".$rowc['id']."'", 'position DESC', array(0, 1));
+        if($rows and count($rows)) {
+          return new subchapter($rows[0]['id']);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * @brief Gets the next subchapter inside the same chapter
+   * @return null or the next subchapter
+   */
+  public function getNext() {
+
+    $rows = $this->_registry->db->autoSelect('id', TBL_B_DOC_SUBCHAPTER, "chapter='".$this->chapter."' AND position>'".$this->position."'", 'position ASC', array(0, 1));
+    if($rows and count($rows)) {
+      return new subchapter($rows[0]['id']);
+    }
+
+    $rows_chapter = $this->_registry->db->autoSelect('id', TBL_B_DOC_CHAPTER, "document='".$this->chapter()->doc()->id."' AND position>'".$this->chapter()->position."'", 'position ASC');
+    if($rows_chapter and count($rows_chapter)) {
+      foreach($rows_chapter as $rowc) {
+        $rows = $this->_registry->db->autoSelect('id', TBL_B_DOC_SUBCHAPTER, "chapter='".$rowc['id']."'", 'position ASC', array(0, 1));
+        if($rows and count($rows)) {
+          return new subchapter($rows[0]['id']);
+        }
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -222,6 +285,8 @@ class subchapter extends model {
       error::raise403();
     }
 
+    $path = $this->path();
+
     // delete associated content (will delete all revisions and notes)
     if(!is_null($this->_content) && $this->_content->id) {
       $this->_content->delete();
@@ -231,6 +296,7 @@ class subchapter extends model {
     $this->chapter()->doc()->updateLastEdit();
 
     $this->deleteData();
+    deleteDirectory($path);
 
   }
 

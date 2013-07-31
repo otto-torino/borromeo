@@ -6,7 +6,6 @@
     <meta name="keywords" content="{KEYWORDS}" />
     {META}
     <title>{TITLE}</title>
-    <link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:400,900italic' rel='stylesheet' type='text/css'>
     <link href='http://fonts.googleapis.com/css?family=Amaranth:400,700italic' rel='stylesheet' type='text/css'>
     <link rel="shortcut icon" href="{FAVICON}" />
     {HEAD_LINKS}
@@ -15,10 +14,20 @@
   </head>
   <body>
     <header>
-      <div id="home_logo"></div>
+      {module:page method:view params:header}
     </header>
+    <nav class="main_menu">
+      {module:menu method:mainMenu}
+    </nav>
     <div id="content">
-      {module:login method:login}
+      <div class="grid grid-l left half">
+        {module:borromeo method:index}
+      </div>
+      <div class="grid grid-r right half">
+        {module:news method:last}
+        {module:login method:login}
+      </div>
+      <div class="clear"></div>
     </div>
     <footer>
       {module:page method:view params:credits}

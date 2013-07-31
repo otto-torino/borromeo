@@ -223,6 +223,12 @@ return array(
 	"cantDeleteEtherpadPad"=>"Etherpad, pad deletion failed",
 	"cantMergeEtherpadPad"=>"Etherpad, pad merge failed",
 	"contactServerAdmin"=>"contact the system administrator",
+	"noPublishedDocuments"=>"there are not published documents",
+	"noChapters"=>"document has no chapters",
+	"workingRevision"=>"working revision",
+	"consolidatedRevision"=>"current revision",
+	"clickHereToInsertText"=>"click here to insert text",
+	"saveComplete"=>"saved",
 
 )
 

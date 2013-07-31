@@ -1,5 +1,5 @@
-<div class="tab">
-  <h3 class="tab-title"><?= ucfirst(__('revisionHistory')) ?></h3>
+<section>
+  <h1 class="tab-title"><?= ucfirst(__('revisionHistory')) ?></h1>
   <? if(count($revisions)): ?>
   <table class="wide generic">
     <tr>
@@ -43,4 +43,4 @@
   <? else: ?> 
     <p><?= ucfirst(__('noRevisions')) ?></p>
   <? endif ?>
-</div>
+</section>

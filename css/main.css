@@ -170,8 +170,8 @@ div.intSelected a:link, div.intSelected a:visited {
  * Form
  */
 label {
-  display: block;
-  float: left;
+  vertical-align: top;
+  display: inline-block;
   margin: 2px 5px 10px 5px;
   width: 250px; }
 
@@ -214,13 +214,15 @@ textarea {
   max-height: 200px;
   overflow: auto;
   padding: 0 10px 0 0;
-  float: left; }
+  display: inline-block; }
 
 form .html {
   display: none;
   margin-bottom: 10px; }
 
 form .captcha {
+  display: inline-block;
+  float: none !important;
   margin-bottom: 10px; }
 
 /* ADMIN TABLE */

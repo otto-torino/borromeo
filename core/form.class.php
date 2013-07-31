@@ -614,26 +614,27 @@ class form {
 	 */
 	public function textarea($name, $value, $opts){
 		
-		if(gOpt($opts, 'editor', false)) {
-			$buffer = "<div id=\"$name\" class=\"html\">$value</div>";
-			$buffer .= $this->hidden($name, '');
-		}
-		else {
-			$buffer = "<textarea name=\"$name\" ";
+    $buffer = "<textarea name=\"$name\" ";
 
-			$buffer .= gOpt($opts, 'id') ? "id=\"".gOpt($opts, 'id')."\" ":"";
-			$buffer .= gOpt($opts, 'class') ? "class=\"".gOpt($opts, 'class')."\" ":"";
-			$buffer .= gOpt($opts, 'pattern') ? "pattern=\"".gOpt($opts, 'pattern')."\" ":"";
-			$buffer .= gOpt($opts, 'hint') ? "data-hint=\"".gOpt($opts, 'hint')."\" ":"";
-			$buffer .= gOpt($opts, 'placeholder') ? "placeholder=\"".gOpt($opts, 'placeholder')."\" ":"";
-			$buffer .= gOpt($opts, 'cols') ? "cols=\"".gOpt($opts, 'cols')."\" ":"";
-			$buffer .= gOpt($opts, 'rows') ? "rows=\"".gOpt($opts, 'rows')."\" ":"";
-			$buffer .= gOpt($opts, 'readonly') ? "readonly=\"".gOpt($opts, 'readonly')."\" ":"";
-			$buffer .= gOpt($opts, 'required') ? "required=\"required\" ":"";
-			$buffer .= gOpt($opts, 'js') ? gOpt($opts, 'js')." ":"";
-			$buffer .= gOpt($opts, 'other') ? gOpt($opts, 'other')." ":"";
-			$buffer .= ">";
-			$buffer .= "$value</textarea>";
+    $buffer .= gOpt($opts, 'id') ? "id=\"".gOpt($opts, 'id')."\" ":"";
+    $buffer .= gOpt($opts, 'class') ? "class=\"".gOpt($opts, 'class')."\" ":"";
+    $buffer .= gOpt($opts, 'pattern') ? "pattern=\"".gOpt($opts, 'pattern')."\" ":"";
+    $buffer .= gOpt($opts, 'hint') ? "data-hint=\"".gOpt($opts, 'hint')."\" ":"";
+    $buffer .= gOpt($opts, 'placeholder') ? "placeholder=\"".gOpt($opts, 'placeholder')."\" ":"";
+    $buffer .= gOpt($opts, 'cols') ? "cols=\"".gOpt($opts, 'cols')."\" ":"";
+    $buffer .= gOpt($opts, 'rows') ? "rows=\"".gOpt($opts, 'rows')."\" ":"";
+    $buffer .= gOpt($opts, 'readonly') ? "readonly=\"".gOpt($opts, 'readonly')."\" ":"";
+    $buffer .= gOpt($opts, 'required') ? "required=\"required\" ":"";
+    $buffer .= gOpt($opts, 'js') ? gOpt($opts, 'js')." ":"";
+    $buffer .= gOpt($opts, 'other') ? gOpt($opts, 'other')." ":"";
+    $buffer .= ">";
+    $buffer .= "$value</textarea>";
+
+    if(gOpt($opts, 'editor', false)) {
+      $this->_registry->addJs(REL_JSLIB.'/ckeditor/ckeditor.js');
+      $buffer .= "<script>CKEDITOR.replace('$name', {
+        customConfig: '".REL_JSLIB."/custom_ckeditor/config.js'
+      })</script>";
 		}
 		
 		return $buffer;

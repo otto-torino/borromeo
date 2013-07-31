@@ -82,6 +82,11 @@ class userController extends controller {
 				'required'=>true,
 				'true_label'=>__('yes'),
 				'false_label'=>__('no')
+			),
+			'email'=>array(
+				'type'=>'email',
+				'required'=>true,
+				'label'=>__('email')
 			)
 		);
 

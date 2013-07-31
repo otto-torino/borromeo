@@ -15,12 +15,12 @@
  *
  * Model fields:
  * - **id** int(1): primary key
- * - **revision** int(8): revision primary key value
+ * - **user** int(8): user primary key value
+ * - **content** int(8): content primary key value
  * - **title** varchar: title
- * - **caption** text: caption
- * - **filename** varchar: file name
- * - **path** varchar: file path
- * - **thumb_path** varchar: thumb file path
+ * - **text** text: text
+ * - **creation_date** datetime: creation date
+ * - **last_edit_date** datetime: last edit date
 
  * @author abidibo abidibo@gmail.com
  * @version 0.1
@@ -43,14 +43,10 @@ class docContentNote extends model {
 
   public function content() {
 
-    require_once('docContent.php');
-
     return new docContent($this->content);
   }
 
   public function files() {
-
-    require_once('docContentNoteFile.php');
 
     $files = docContentNoteFile::getFromNote($this->id);
 
@@ -67,7 +63,7 @@ class docContentNote extends model {
 
     $db = db::instance();
 
-    $order = gOpt($opts, 'order', 'id');
+    $order = gOpt($opts, 'order', 'last_edit_date DESC');
 
     $res = array();
     $rows = $db->autoSelect('id', TBL_B_DOC_CONTENT_NOTE, "content='".$content_id."'", $order);

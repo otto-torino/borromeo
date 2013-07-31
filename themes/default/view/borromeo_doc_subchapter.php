@@ -1,12 +1,10 @@
-<article class="borromeo-doc-subchapter">
-  <h2><?= htmlVar($subchapter->title) ?></h2>
-  <div id="tab-<?= $subchapter->id ?>">
-    <?= $content_tab ?>
-    <?= $pad_tab ?>
-    <?= $revision_tab ?>
-    <?= $revision_history_tab ?>
-  </div>
-</article>
-<script type="text/javascript">
-  new mootab('tab-<?= $subchapter->id ?>', '.tab', '.tab-title');
-</script>
+<h3><?= htmlVar($subchapter->title) ?></h3>
+<?= htmlVar($subchapter->content()->revision()->text) ?>
+<p>
+<? if($prev = $subchapter->getPrevious()): ?>
+  <a class="navigation navigation-prev" href="<?= $prev->getUrl() ?>"><?= htmlVar($prev->title )?></a>
+<? endif ?>
+<? if($next = $subchapter->getNext()): ?>
+  <a class="navigation navigation-next" href="<?= $next->getUrl() ?>"><?= htmlVar($next->title )?></a>
+<? endif ?>
+</p>

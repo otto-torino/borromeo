@@ -1,4 +1,4 @@
-html, body {
+/*html, body {
   background: #fff;
 }
 header {
@@ -56,4 +56,12 @@ body > footer {
 }
 footer > section {
   display: inline-block;
+}*/
+#content {
+  width: 800px;
+  margin: auto;
+}
+body > footer {
+  width: 800px;
+  margin: auto;
 }

@@ -106,12 +106,14 @@ function layerWindowCall($title, $url, $opts=null) {
 
 	$width = gOpt($opts, 'width', 800);
 	$height = gOpt($opts, 'height', null);
+	$maxheight = gOpt($opts, 'maxheight', null);
 	$bodyId = gOpt($opts, 'bodyId', 'bid');
 	$reloadZindex = gOpt($opts, 'reloadZindex', false) ? "true" : "false";
 
 	$height_opt = $height ? " 'height':$height," : '';
+	$maxheight_opt = $maxheight ? " 'maxHeight':$maxheight," : '';
 
-	$onclick = "window.myWin = new layerWindow({'title':'$title', 'url':'$url', 'bodyId':'$bodyId', 'width':$width,$height_opt 'destroyOnClose':true, reloadZindex: $reloadZindex, closeButtonUrl: '".ROOT."/img/icons/ico_close.gif', 'overlay':true});window.myWin.display();";
+	$onclick = "window.myWin = new layerWindow({'title':'$title', 'url':'$url', 'bodyId':'$bodyId', 'width':$width,$height_opt$maxheight_opt 'destroyOnClose':true, reloadZindex: $reloadZindex, closeButtonUrl: '".ROOT."/img/icons/ico_close.gif', 'overlay':true});window.myWin.display();";
 
 	return $onclick;
 
@@ -491,7 +493,7 @@ function sanitize($string = '', $is_filename = false) {
 /**
  * @brief Deletes a directory
  * @param string $dir the absolute path of the directory
- * @ return the result of the operation
+ * @return the result of the operation
  */
 function deleteDirectory($dir) {
 

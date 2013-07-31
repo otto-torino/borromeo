@@ -2,16 +2,9 @@
 <section class="borromeo-doc-annotations" id="borromeo-doc-annotations">
   <header>
     <h1 class="left"><?= ucfirst(__('docAnnotations')) ?></h1>
-    <span class="right link icon icon_add" onclick="<?= layerWindowCall(ucfirst(__('addNote')), $new_note_url) ?>" title="<?= __('addNote') ?>"></span>
+    <span class="right link icon icon_add" onclick="<?= layerWindowCall(ucfirst(__('addNote')), $new_note_url, array('maxheight'=>600)) ?>" title="<?= __('addNote') ?>"></span>
     <div class="clear"></div>
   </header>
-  <p>
-    <select onchange="ajaxRequest('post', '<?= $registry->router->linkAjax('borromeo', 'docAnnotations')?>', 'subchapter_id=' + $(this).value, 'borromeo-doc-notes-container', {load: 'borromeo-doc-annotations', load_replace: true})">
-    <? foreach($select_subchapters as $sid => $stitle): ?>
-      <option value="<?= $sid ?>"<? if($sid == $subchapter->id) echo " selected=\"selected\""; ?>><?= $stitle ?></option>
-    <? endforeach ?>
-    </select>
-  </p>
   <? if(count($notes)): ?>
     <dl class='collapsable-dl'>
     <? foreach($notes as $note): ?>
@@ -26,13 +19,13 @@
           <? if(count($note->files())): ?>
             <ol>
               <? foreach($note->files() as $file): ?>
-                <li><a href="<?= $file->path ?>"><?= htmlVar($file->title) ?></a></li>
+                <li><a target="_blank" href="<?= $file->path ?>"><?= htmlVar($file->title) ?></a></li>
               <? endforeach ?>
             </ol>
           <? endif ?>
           <div style="margin-top: 10px;">
             <span class="link icon_small icon_edit_small" onclick="<?= layerWindowCall(ucfirst(__('editNote')), $edit_url.'&note='.$note->id) ?>"></span>
-            <span class="link icon_small icon_delete_small" onclick="<?= layerWindowCall(ucfirst(__('deleteNote')), $delete_url.'&note='.$note->id) ?>"></span>
+            <a class="link icon_small icon_delete_small" href="<?= $delete_url.'&note='.$note->id ?>"></a>
           </div>
       </dd>
     <? endforeach ?>
@@ -48,10 +41,10 @@
         window.addEvent('scroll', function() {
           var scroll = window.getScroll().y;
           if(scroll > scroll_offset) {
-            myscrollfx.start('margin-top', (scroll + 20) - scroll_offset);
+            myscrollfx.start('margin-top', (scroll + 50) - scroll_offset);
           }
           else {
-            myscrollfx.start('margin-top', 10);
+            myscrollfx.start('margin-top', 40);
           }
         })
       })()

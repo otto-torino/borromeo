@@ -45,7 +45,6 @@ class chapter extends model {
 
     parent::__construct($id);
 
-    require_once('subchapter.php');
     $this->_subchapters = subchapter::get(array('get_id'=>true, 'where'=>"chapter='".$this->id."'"));
 
   }
@@ -62,7 +61,6 @@ class chapter extends model {
 
   public function doc() {
 
-    require_once('doc.php');
     return new doc($this->document);
 
   }
@@ -101,8 +99,6 @@ class chapter extends model {
    * @return the adminTable instance
    */
   public static function adminTable($doc) {
-
-    require_once(dirname(__FILE__).DS.'chapterAdminTable.php');
 
     $s_fields = array(
       "document"=>array(
@@ -187,7 +183,8 @@ class chapter extends model {
       error::raise403();
     }
 
-    require_once('subchapter.php');
+    $doc_id = $this->doc()->id;
+    $id = $this->id;
 
     // delete all subchapters
     foreach($this->_subchapters as $subchapter_id) {
@@ -195,7 +192,8 @@ class chapter extends model {
       $subchapter->delete();
     }
 
-    return $this->deleteData();
+    $this->deleteData();
+    deleteDirectory(ABS_UPLOAD.DS.'doc'.DS.$doc_id.DS.$id);
 
   }
 

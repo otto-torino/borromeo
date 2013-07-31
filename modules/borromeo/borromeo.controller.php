@@ -14,6 +14,20 @@
  * @ingroup modules
  */
 
+require_once('chapter.php');
+require_once('chapterAdminTable.php');
+require_once('doc.php');
+require_once('docAdminTable.php');
+require_once('docContent.php');
+require_once('docContentNote.php');
+require_once('docContentNoteFile.php');
+require_once('docContentPublicNote.php');
+require_once('docContentPublicNoteAdminTable.php');
+require_once('docContentRevision.php');
+require_once('docCtg.php');
+require_once('subchapter.php');
+require_once('subchapterAdminTable.php');
+
 /**
  * @ingroup borromeo
  * @brief Borromeo module controller
@@ -46,9 +60,9 @@ class borromeoController extends controller {
   private $_admin_insert_doc_privilege;
 
   /**
-   * privilege to view documents
+   * privilege to publish public notes
    */
-  private $_view_doc_privilege;
+  private $_admin_note_publication_privilege;
 
   /**
    * @brief supported media
@@ -88,12 +102,7 @@ class borromeoController extends controller {
     $this->_admin_doc_ctg_privilege = 1;
     $this->_admin_doc_privilege = 2;
     $this->_admin_insert_doc_privilege = 3;
-    $this->_view_doc_privilege = 4;
-
-    $this->_media = array(
-      'docContentImage',
-      'docContentAttachment'
-    );
+    $this->_admin_note_publication_privilege = 4;
 
     // ETHERPAD
     $this->_etherpad_api_key = ETHERPAD_API_KEY;
@@ -123,42 +132,34 @@ class borromeoController extends controller {
   }
 
   /**
-   * @brief Cheks if the user has the view doc privilegre
-   * @ return true if he has it, false otherwise
-   */
-  public function hasViewDocPrivilege() {
-
-     return access::check($this->_class_privilege, $this->_view_doc_privilege, array("exitOnFailure"=>false));
-
-  }
-
-  /**
-   * @brief supported media
-   * @return associative array of supported media name => classname
-   */
-  public function media() {
-    return $this->_media;
-  }
-
-  /**
    * @brief Control panel in the administrative area
    * @ return control panel
    */
   public function homeAdmin() {
 
-    access::check($this->_class_privilege, array($this->_admin_doc_privilege, $this->_admin_insert_doc_privilege), array("exitOnFailure"=>true));
+    access::check($this->_class_privilege, array($this->_admin_doc_privilege, $this->_admin_insert_doc_privilege, $this->_admin_note_publication_privilege), array("exitOnFailure"=>true));
 
-    if(!access::check($this->_class_privilege,$this->_admin_doc_privilege, array("exitOnFailure"=>false))) {
-      $permission = 'create';
+    $can_manage = $can_create = $can_publish = false;
+
+    if(access::check($this->_class_privilege,$this->_admin_doc_privilege, array("exitOnFailure"=>false))) {
+      $can_manage = true;
+      $can_create = true;
+      $can_publish = true;
     }
-    else {
-      $permission = 'manage';
+    if(access::check($this->_class_privilege,$this->_admin_insert_doc_privilege, array("exitOnFailure"=>false))) {
+      $can_create = true;
+    }
+    if(access::check($this->_class_privilege,$this->_admin_note_publication_privilege, array("exitOnFailure"=>false))) {
+      $can_publish = true;
     }
 
     $this->_view->setTpl('borromeo_home_admin');
-    $this->_view->assign('permission', $permission);
+    $this->_view->assign('can_manage', $can_manage);
+    $this->_view->assign('can_create', $can_create);
+    $this->_view->assign('can_publish', $can_publish);
     $this->_view->assign('manage_doc_ctg_link', anchor($this->_router->linkHref($this->_mdl_name, 'manageDocCtg'), __('manageDocCtg')));
     $this->_view->assign('manage_doc_link', anchor($this->_router->linkHref($this->_mdl_name, 'manageDoc'), __('manageDoc')));
+    $this->_view->assign('manage_notes_link', anchor($this->_router->linkHref($this->_mdl_name, 'managePublicAnnotation'), __('managePublicAnnotation')));
 
     return $this->_view->render();
   }
@@ -169,9 +170,7 @@ class borromeoController extends controller {
    */
   public function index() {
 
-    require_once('doc.php');
-
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
 
     $docs = doc::get();
 
@@ -184,57 +183,140 @@ class borromeoController extends controller {
 
   }
 
-  /**
-   *  @brief Visualization and modification a document chapter
-   *  @description if a GET chapter is not passed the first is taken
-   *  @return document view
-   */
-  public function doc() {
+  public function docPad() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    $this->_registry->addJs(REL_JSLIB.'/borromeo.js');
-    $this->_registry->addJs(REL_JSLIB.'/mootab.js');
-    $this->_registry->addCss(REL_CSS.'/mootab.css');
+    $link_error = $this->_router->linkHref(null, null);
 
-    require_once('doc.php');
-    require_once('chapter.php');
-    require_once('subchapter.php');
-    require_once('docContent.php');
+    $this->_router->getModule(null);
+    $method = $this->_router->method();
 
     $id = cleanInput('get', 'id', 'int');
-    $chapter_id = cleanInput('get', 'chapter', 'int');
 
-    $doc = new doc($id);
-
-    // if doc doesn't exist or can't be viewed raise 404
-    if(!$doc->id) {
-      error::raise404();
+    if($method == 'doc') {
+      $doc = new doc($id);
+      list($chapter, $subchapter) = $this->getChapterAndSubchapter($doc);
     }
-    if(!$doc->canView()) {
-      error::raise403();
+    elseif($method == 'revision') {
+      $revision = new docContentRevision($id);
+      $subchapter = $revision->content()->subchapter();
+      $chapter = $subchapter->chapter();
+      $doc = $chapter->doc();
     }
 
-    if($chapter_id) {
-      $chapter = new chapter($chapter_id);
-      $doc_chapter = $this->docChapter($chapter);
+    $content = $subchapter->content();
+
+    // only authors and tutora can use the pad
+    if(!$content->canRevise()) {
+      return '';
+    }
+
+    require_once(ABS_PHPLIB.DS.'etherpad-lite-client.php');
+
+    $instance = new EtherpadLiteClient($this->_etherpad_api_key, $this->_etherpad_api_url);
+
+    // Step 1, get GroupID of the userID where userID is OUR userID and NOT the userID used by Etherpad
+    try {
+      $mappedGroup = $instance->createGroupIfNotExistsFor($content->id);
+      $groupID = $mappedGroup->groupID;
+    }
+    catch (Exception $e) {
+      exit(Error::errorMessage(array(
+        'error' => __('cantCreateEtherpadGroup'). ' error: '.$e->getMessage(),
+        'hint' => __('contactServerAdmin')
+      ), $link_error));
+    }
+
+    /* get Mapped Author ID based on a value from your web application such as the userID */
+    try {
+      $author = $instance->createAuthorIfNotExistsFor($this->_registry->user->id, $this->_registry->user->username); 
+      $authorID = $author->authorID;
+    }
+    catch (Exception $e) {
+      exit(Error::errorMessage(array(
+        'error' => __('cantCreateEtherpadAuthor'). ' error: '.$e->getMessage(),
+        'hint' => __('contactServerAdmin')
+      ), $link_error));
+    }
+
+    if(!$content->active_pad) {
+      try {
+        $newPad = $instance->createGroupPad($groupID, __('realtimeNotes'), ''); 
+        $padID = $newPad->padID;
+        $instance->setHtml($padID, "<html><head></head><body></body></html>");
+        $content->active_pad = $padID;
+        $content->saveData();
+      }
+      catch (Exception $e) {
+        exit(Error::errorMessage(array(
+          'error' => __('cantCreateEtherpadPad'). ' error: '.$e->getMessage(),
+          'hint' => __('contactServerAdmin')
+        ), $link_error));
+      }
+    }
+
+    try {
+      $validUntil = mktime(0, 0, 0, date("m"), date("d")+1, date("y")); // One day in the future
+      $sessionID = $instance->createSession($groupID, $authorID, $validUntil);
+      $sessionID = $sessionID->sessionID;
+      $this->sessionCookie($sessionID);
+      $padList = $instance->listPads($groupID);
+      $padList = $padList->padIDs;
+    }
+    catch (Exception $e) {
+      echo $e;
+      $padList = array();
+    }
+
+    $padID = $content->active_pad;
+    $pad_url = $this->_etherpad_pad_url.$padID;
+
+    $view = new view();
+    $view->setTpl('borromeo_doc_pad');
+    $view->assign('pad_url', $pad_url);
+
+    return $view->render();
+
+  }
+
+  private function sessionCookie($sessionID) {
+
+    $id = null;
+
+    if(!isset($_COOKIE['sessionID']) or !$_COOKIE['sessionID']) {
+      $id = $sessionID;
     }
     else {
-      $chapters = $doc->chapters();
-      if(count($chapters)) {
-        $chapter = new chapter($chapters[0]);
-        $doc_chapter = $this->docChapter($chapter);
-      }
-      else {
-        $doc_chapter = null;
+      $session_ids_a = explode(',', $_COOKIE['sessionID']);
+      if(!in_array($sessionID, $session_ids_a)) {
+        $session_ids_a[] = $sessionID;
+        $id = implode(',', $session_ids_a);
       }
     }
 
-    $this->_view->setTpl('borromeo_doc', array('css' => 'borromeo'));
-    $this->_view->assign('doc', $doc);
-    $this->_view->assign('doc_chapter', $doc_chapter);
+    if($id) {
+      setcookie("sessionID", $id, time()+3600, "/");
+    }
 
-    return $this->_view->render();
+  }
+
+  public function deletePads() {
+
+    access::check('main', $this->_registry->admin_privilege, array("exitOnFailure"=>true));
+
+    $link_error = $this->_router->linkHref(null, null);
+
+    require_once(ABS_PHPLIB.DS.'etherpad-lite-client.php');
+
+    $content_id = cleanInput('get', 'content', 'int');
+    $content = new docContent($content_id);
+
+    $instance = new EtherpadLiteClient($this->_etherpad_api_key, $this->_etherpad_api_url);
+
+    $all_groups = $instance->listAllGroups();
+
+    var_dump($all_groups);
 
   }
 
@@ -243,36 +325,32 @@ class borromeoController extends controller {
    */
   public function docIndex() {
 
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
 
     $this->_registry->addJs(REL_JSLIB.'/Scrollable.js');
     $this->_registry->addCss(REL_CSS.'/Scrollable.css');
     $this->_registry->addJs(REL_JSLIB.'/borromeo.js');
 
-    require_once('doc.php');
+    $this->_router->getModule(null);
+    $method = $this->_router->method();
 
     $id = cleanInput('get', 'id', 'int');
-    $content_id = cleanInput('get', 'content_id', 'int');
-    $revision_id = cleanInput('get', 'revision_id', 'int');
 
-    if($id) {
+    if($method == 'doc') {
       $doc = new doc($id);
+      list($chapter, $subchapter) = $this->getChapterAndSubchapter($doc);
     }
-    elseif($content_id) {
-      require_once('docContent.php');
-      $content = new docContent($content_id);
-      $doc = $content->subchapter()->chapter()->doc();
-    }
-    elseif($revision_id) {
-      require_once('docContentRevision.php');
-      $revision = new docContentRevision($revision_id);
-      $doc = $revision->content()->subchapter()->chapter()->doc();
+    elseif($method == 'revision') {
+      $revision = new docContentRevision($id);
+      $subchapter = $revision->content()->subchapter();
+      $chapter = $subchapter->chapter();
+      $doc = $chapter->doc();
     }
 
     $view = new view();
     $view->setTpl('borromeo_doc_index');
     $view->assign('doc', $doc);
-    $view->assign('view_chapter_url', $this->_router->linkHref($this->_mdl_name, 'doc', array('id'=>$doc->id)));
+    $view->assign('view_subchapter_url', $this->_router->linkHref($this->_mdl_name, 'doc', array('id'=>$doc->id)));
     $view->assign('form_chapter_url', $this->_router->linkAjax($this->_mdl_name, 'formChapter', array('doc_id'=>$doc->id)));
     $view->assign('delete_chapter_url', $this->_router->linkAjax($this->_mdl_name, 'deleteChapter', array('doc_id'=>$doc->id)));
     $view->assign('form_subchapter_url', $this->_router->linkAjax($this->_mdl_name, 'formSubchapter', array('doc_id'=>$doc->id)));
@@ -284,136 +362,185 @@ class borromeoController extends controller {
 
   }
 
-  public function deleteChapter() {
-    
+  /**
+   * @brief update the order of chapters and subchapters (dragging)
+   * @return boolean result of the opertation
+   */
+  public function applyIndexOrder() {
+
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('doc.php');
+    require_once('subchapter.php');
     require_once('chapter.php');
+    require_once('doc.php');
 
-    $chapter_id = cleanInput('get', 'chapter_id', 'int');
-    $chapter = new chapter($chapter_id);
-    if(!$chapter->id) {
-      error::raise404();
-    }
-    $doc = $chapter->doc();
+    $doc_id = cleanInput('get', 'doc_id', 'int');
+    $doc = new doc($doc_id);
+
     if(!$doc->canManage()) {
       error::raise403();
     }
 
-    $chapter->delete();
+    $chapters_str = cleanInput('post', 'chapters', 'string', array('escape' => false));
+    $subchapters_str = cleanInput('post', 'subchapters', 'string', array('escape' => false));
+    $slists_str = cleanInput('post', 'slists', 'string', array('escape' => false));
 
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $doc->id)));
-    exit();
+    $chapters_order = json_decode($chapters_str);
+    $subchapters_order = json_decode($subchapters_str);
+    $slists = json_decode($slists_str);
+
+    $res = chapter::applyOrder($chapters_order);
+    $res = $res and subchapter::applyOrder($subchapters_order, $slists);
+
+    if($res) {
+      $doc->updateLastEdit();
+    }
+
+    return $res;
 
   }
 
-  public function deleteSubchapter() {
-    
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('doc.php');
-    require_once('subchapter.php');
+  /**
+   * Document annotations, public and private (revise)
+   */
+  public function docAnnotations() {
 
-    $subchapter_id = cleanInput('get', 'subchapter_id', 'int');
-    $subchapter = new subchapter($subchapter_id);
-    if(!$subchapter->id) {
-      error::raise404();
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
+
+    if($this->_registry->user->id) {
+      return $this->docAnnotationsRevise();
     }
-    $doc = $subchapter->chapter()->doc();
-    if(!$doc->canManage()) {
-      error::raise403();
+    else {
+      return $this->docAnnotationsPublic();
+    }
+  }
+
+  /**
+   * @brief Public annotations
+   */
+  public function docAnnotationsPublic() {
+
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
+
+    $id = cleanInput('get', 'id', 'int');
+
+    $doc = new doc($id);
+    list($chapter, $subchapter) = $this->getChapterAndSubchapter($doc);
+
+    if(!$doc->id or !$subchapter or !$subchapter->id) return '';
+    $content = $subchapter->content();
+
+    $notes = docContentPublicNote::getFromContent($content->id);
+
+    $view = new view();
+    $view->setTpl('borromeo_doc_public_annotations');
+    $view->assign('subchapter', $subchapter);
+    $view->assign('new_note_url', $this->_router->linkAjax($this->_mdl_name, 'formPublicAnnotation', array('content_id' => $content->id)));
+    $view->assign('notes', $notes);
+    $view->assign('registry', $this->_registry);
+    $view->assign('content', $content);
+    $annotations = $view->render();
+
+    return $annotations;
+
+  }
+
+  /**
+   * @brief Create a public note
+   */
+  public function formPublicAnnotation() {
+
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
+
+    $content_id = cleanInput('get', 'content_id', 'int');
+    $content = new docContent($content_id);
+
+    $myform = new form('post', 'form_public_note', array('validation' => true));
+    $form = $myform->sform($this->_router->linkHref($this->_mdl_name, 'savePublicAnnotation'), 'title', array('upload' => true));
+    $form .= $myform->hidden('content_id', $content->id);
+    $form .= $myform->cinput('title', 'text', '', __('title'), array('required'=>true));
+    $form .= $myform->ctextarea('text', '', __('text'), array('required' => false, 'cols' => 40, 'rows' => 6));
+    $form .= $myform->ccaptcha();
+
+    $form .= $myform->cinput('submit', 'submit', __('save'), '', null);
+    $form .= $myform->cform();
+
+    $view = new view();
+    $view->setTpl('borromeo_doc_form_annotation');
+    $view->assign('content', $content);
+    $view->assign('information', __('publicAnnotationFormInformation'));
+    $view->assign('form', $form);
+
+    return $view->render();
+
+  }
+
+  /**
+   * @brief Saves an annotation
+   */
+  public function savePublicAnnotation() {
+
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
+
+    $content_id = cleanInput('post', 'content_id', 'int');
+    $content = new docContent($content_id);
+
+    $myform = new form('post', 'form_public_note', array('validation' => false));
+
+    if($myform->checkRequired()) {
+      error::errorMessage(array(
+        'error' => 1
+      ), $content->subchapter()->getUrl());
     }
 
-    $subchapter->delete();
+    if(!$myform->checkCaptcha()) {
+      error::errorMessage(array(
+        'error' => __('captchaError')
+      ), $content->subchapter()->getUrl());
+    }
 
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $doc->id)));
+    $note = new docContentPublicNote(null);
+    $note->content = $content->id;
+    $note->title = cleanInput('post', 'title', 'string');
+    $note->text = cleanInput('post', 'text', 'string');
+    $note->creation_date = $this->_registry->dtime->now('%y-%m-%d %H:%i:%s');
+    $note->published = 0;
+
+    $note->saveData();
+
+    header("Location: ".$content->subchapter()->getUrl());
     exit();
 
   }
 
   /**
-   * @brief Document annotations panel
+   * @brief Authors and tutors annotations
    */
-  public function docAnnotations() {
+  public function docAnnotationsRevise() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
-    
-    require_once('doc.php');
-    require_once('chapter.php');
-    require_once('subchapter.php');
+
+    $this->_router->getModule(null);
+    $method = $this->_router->method();
 
     $id = cleanInput('get', 'id', 'int');
-    $chapter_id = cleanInput('get', 'chapter_id', 'int');
-    $subchapter_id = cleanInput('post', 'subchapter_id', 'int');
-    $content_id = cleanInput('get', 'content_id', 'int');
-    $revision_id = cleanInput('get', 'revision_id', 'int');
 
-    $subchapter = null;
-
-    if($content_id) {
-      require_once('docContent.php');
-      $content = new docContent($content_id);
-      $subchapter_id = $content->subchapter()->id;
-      $doc = $content->subchapter()->chapter()->doc();
-    }
-    elseif($revision_id) {
-      require_once('docContentRevision.php');
-      $revision = new docContentRevision($revision_id);
-      $subchapter_id = $revision->content()->subchapter()->id;
-      $doc = $revision->content()->subchapter()->chapter()->doc();
-    }
-    elseif($id) {
+    if($method == 'doc') {
       $doc = new doc($id);
+      list($chapter, $subchapter) = $this->getChapterAndSubchapter($doc);
+    }
+    elseif($method == 'revision') {
+      $revision = new docContentRevision($id);
+      $subchapter = $revision->content()->subchapter();
+      $chapter = $subchapter->chapter();
+      $doc = $chapter->doc();
     }
 
-    if($subchapter_id) {
-      $subchapter = new subchapter($subchapter_id);
-      $doc = $subchapter->chapter()->doc();
-      $chapter_id = $subchapter->chapter()->id;
-    }
-
-    if(!$doc->id) return '';
-
-    if($chapter_id) {
-      $chapter = new chapter($chapter_id);
-    }
-    else {
-      $chapters = $doc->chapters();
-      if(count($chapters)) {
-        $chapter = new chapter($chapters[0]);
-      }
-      else {
-        return '';
-      }
-    }
-
-    $subchapters = $chapter->subchapters();
-    if(count($subchapters)) {
-      $select_subchapters = array();
-      $i = 0;
-      foreach($subchapters as $sid) {
-        $s = new subchapter($sid);
-        $c = $s->content();
-        if($c->canRevise()) {
-          if($i == 0 && !$subchapter_id) {
-            $subchapter = $s;
-          }
-          $select_subchapters[$s->id] = htmlVar($s->title);
-          $i++;
-        }
-      }
-    }
-    else {
-      return '';
-    }
-
-    if(!$subchapter or !$subchapter->id) return '';
-
+    if(!$doc->id or !$subchapter or !$subchapter->id) return '';
     $content = $subchapter->content();
 
     if($content->canRevise()) {
-      require_once('docContentNote.php');
       $notes = docContentNote::getFromContent($content->id);
       $view = new view();
     }
@@ -421,7 +548,6 @@ class borromeoController extends controller {
 
     $view = new view();
     $view->setTpl('borromeo_doc_annotations');
-    $view->assign('select_subchapters', $select_subchapters);
     $view->assign('subchapter', $subchapter);
     $view->assign('new_note_url', $this->_router->linkAjax($this->_mdl_name, 'formAnnotation', array('content_id' => $content->id)));
     $view->assign('notes', $notes);
@@ -432,144 +558,6 @@ class borromeoController extends controller {
     $annotations = $view->render();
 
     return $annotations;
-  }
-
-  /**
-   * @brief Visualization of a single chapter
-   */
-  private function docChapter($chapter) {
-
-    require_once('chapter.php');
-    require_once('subchapter.php');
-    require_once('docContentRevision.php');
-
-    $this->_registry->addJs(REL_JSLIB.'/moogallery.js');
-    $this->_registry->addCss(REL_CSS."/moogallery.css");
-
-    $contents = array();
-    $subchapters = $chapter->subchapters();
-    foreach($subchapters as $subchapter_id) {
-      $subchapter = new subchapter($subchapter_id);
-      $content = $subchapter->content();
-
-      $current_revision = new docContentRevision($content->revision);
-      $pending_revision = $content->pendingRevision();
-
-      // pad 
-      if($content->active_pad) {
-        require_once(ABS_PHPLIB.DS.'etherpad-lite-client.php');
-        if($content->canRevise()) {
-          $instance = new EtherpadLiteClient($this->_etherpad_api_key, $this->_etherpad_api_url);
-
-          try {
-            $mappedGroup = $instance->createGroupIfNotExistsFor($content->id);
-            $groupID = $mappedGroup->groupID;
-            $author = $instance->createAuthorIfNotExistsFor($this->_registry->user->id, $this->_registry->user->username); 
-            $authorID = $author->authorID;
-
-            if(!isset($_COOKIE['sessionID']) or !$_COOKIE['sessionID']) {
-              $validUntil = mktime(0, 0, 0, date("m"), date("d")+1, date("y")); // One day in the future
-              $sessionID = $instance->createSession($groupID, $authorID, $validUntil);
-              $sessionID = $sessionID->sessionID;
-              setcookie("sessionID", $sessionID, time()+3600, "/");
-            }
-
-            $padList = $instance->listPads($groupID);
-            $padList = $padList->padIDs;
-            //var_dump($instance->getHtml($padList[0]));
-            //
-          }
-          catch (Exception $e) {
-            echo $e;
-            $padList = array();
-          }
-        }
-      }
-
-      // current content tab
-      $controllers = array();
-      if($content->canRevise()) {
-        if(!$pending_revision->id && !$content->active_pad) {
-          $controllers[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'editRevision', array('content_id' => $content->id))."\" class=\"right link icon icon_edit\" title=\"".__('edit')."\"></a>";
-        }
-      }
-      $title = ucfirst(__('publicRevision'));
-      $author = null;
-      $scontent = $this->revisionTab($current_revision, $title, $controllers, $author);
-
-      // open pad
-      if($content->active_pad && in_array($content->active_pad, $padList)) {
-        $padID = $content->active_pad;
-        $controllers = array();
-        if($content->canManage()) {
-          $controllers[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'deletePad', array('content_id' => $content->id, 'pad_id' => $padID))."\" class=\"right link icon icon_delete\" title=\"".__('delete')."\"></a>";
-          $controllers[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'mergePad', array('content_id' => $content->id, 'pad_id' => $padID))."\" class=\"right link icon icon_merge\" title=\"".__('merge')."\"></a>";
-        }
-        $pad_url = $this->_etherpad_pad_url.$padID;
-        $view = new view();
-        $view->setTpl('borromeo_doc_revision_pad');
-        $view->assign('content', $content);
-        $view->assign('controllers', $controllers);
-        $view->assign('current_revision', $current_revision);
-        $view->assign('pad_url', $pad_url);
-        $spad = $view->render();
-      }
-      else {
-        $spad = '';
-      }
-
-      // current revision
-      if($pending_revision->id && $content->canRevise() && !$content->active_pad) {
-        $controllers = array();
-        if($pending_revision->canEdit() && !$content->active_pad) {
-          $controllers[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'editRevision', array('revision_id' => $pending_revision->id))."\" class=\"right link icon icon_edit\" title=\"".__('edit')."\"></a>";
-          if($pending_revision->canMerge()) {
-            $controllers[] = "<span onclick=\"".layerWindowCall(ucfirst(__('mergeRevision')), $this->_router->linkAjax($this->_mdl_name, 'formMergeRevision', array('revision_id' => $pending_revision->id)).'&revision_id='.$pending_revision->id)."\" class=\"right link icon icon_merge\" title=\"".__('merge')."\"></span>";
-          }
-        }
-        $title = ucfirst(__('workRevision'));
-        $rauthor = new user($pending_revision->user);
-        $author = htmlVar($rauthor->lastname.' '.$rauthor->firstname);
-        $srevision = $this->revisionTab($pending_revision, $title, $controllers, $author);
-      }
-      else {
-        $srevision = '';
-      }
-
-      // revision history
-      if($content->canManage()) {
-
-        $revisions = docContentRevision::get(array('where' => "content='".$content->id."' AND merged IS NOT NULL", 'order' => 'merged_date DESC'));
-
-        $view = new view();
-        $view->setTpl('borromeo_doc_revision_history');
-        $view->assign('revisions', $revisions);
-        $view->assign('current_revision', $current_revision);
-        $view->assign('view_url', $this->_router->linkAjax($this->_mdl_name, 'viewRevision'));
-        $view->assign('registry', $this->_registry);
-        $view->assign('create_from_url', $this->_router->linkHref($this->_mdl_name, 'createRevisionFrom'));
-        $revision_history = $view->render();
-      }
-      else {
-        $revision_history = '';
-      }
-
-      $view = new view();
-      $view->setTpl('borromeo_doc_subchapter');
-      $view->assign('subchapter', $subchapter);
-      $view->assign('content_tab', $scontent);
-      $view->assign('pad_tab', $spad);
-      $view->assign('revision_tab', $srevision);
-      $view->assign('revision_history_tab', $revision_history);
-      $contents[] = $view->render();
-    }
-
-    $view = new view();
-    $view->setTpl('borromeo_doc_chapter');
-    $view->assign('chapter', $chapter);
-    $view->assign('contents', $contents);
-
-    return $view->render();
 
   }
 
@@ -578,11 +566,7 @@ class borromeoController extends controller {
    */
   public function formAnnotation() {
 
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
-
-    require_once('docContent.php');
-    require_once('docContentNote.php');
-    require_once('docContentNoteFile.php');
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
 
     $note_id = cleanInput('get', 'note', 'int');
     $note = new docContentNote($note_id);
@@ -654,9 +638,7 @@ class borromeoController extends controller {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('docContent.php');
-
-    $note_id = cleanInput('post', 'note_id', 'int');
+    $note_id = cleanInput('get', 'note', 'int');
     $note = new docContentNote($note_id);
     $content = $note->content();
 
@@ -664,9 +646,11 @@ class borromeoController extends controller {
       error::raise403();
     }
 
+    $subchapter = $content->subchapter();
+
     $note->delete();
 
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id)));
+    header("Location: ".$subchapter->getUrl());
     exit();
 
   }
@@ -680,8 +664,6 @@ class borromeoController extends controller {
 
     $myform = new form('post', 'form_note', array('validation' => false));
 
-    require_once('docContent.php');
-
     $note_id = cleanInput('post', 'note_id', 'int');
     $content_id = cleanInput('post', 'content_id', 'int');
     $content = new docContent($content_id);
@@ -689,9 +671,6 @@ class borromeoController extends controller {
     if(!$content->canRevise()) {
       error::raise403();
     }
-
-    require_once('docContentNote.php');
-    require_once('docContentNoteFile.php');
 
     $del_file = cleanInputArray('post', 'del_file', 'int');
     if(count($del_file)) {
@@ -715,90 +694,142 @@ class borromeoController extends controller {
 
     docContentNoteFile::saveFiles($myform, $note);
 
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id)));
+    header("Location: ".$content->subchapter()->getUrl());
+    exit();
+
+  }
+
+
+  /**
+   * @brief authoring and tutoring tools controllers
+   */
+  public function docControllers() {
+
+    $this->_router->getModule(null);
+    $method = $this->_router->method();
+
+    $id = cleanInput('get', 'id', 'int');
+
+    if($method == 'doc') {
+      $doc = new doc($id);
+      list($chapter, $subchapter) = $this->getChapterAndSubchapter($doc);
+    }
+    elseif($method == 'revision') {
+      $revision = new docContentRevision($id);
+      $subchapter = $revision->content()->subchapter();
+      $chapter = $subchapter->chapter();
+      $doc = $chapter->doc();
+    }
+
+    // no subchapter
+    if(!$doc->id or !$chapter->id or !$subchapter->id) {
+      return '';
+    }
+    $content = $subchapter->content();
+    // no privilege to revise contents
+    if(!$subchapter->content()->canRevise()) {
+      return '';
+    }
+
+    // set session path for ckeditor
+    $_SESSION['ckeditor_upload_path'] = '/upload/doc/'.$doc->id.'/'.$chapter->id.'/'.$subchapter->id.'/';
+
+    $controllers = array();
+    $links = array();
+
+    // revision pending, not yet merged
+    $pending_revision = $content->pendingRevision();
+
+    // if no pending revision then a new one can be created
+    if(!$pending_revision->id) {
+      $controllers[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'createRevision', array('content_id' => $content->id))."\" class=\"right link icon icon_edit\" title=\"".__('edit')."\"></a>";
+    }
+    // links and controllers
+    else {
+      $links[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'doc', array('id'=>$doc->id, 'chapter'=>$chapter->id, 'subchapter'=>$subchapter->id))."\" class=\"left ctrl-link link".($method == 'doc' ? ' selected' : '')."\">".__('consolidatedRevision')."</a>";
+      $ruser = new user($pending_revision->user);
+      $links[] = "<a href=\"".$this->_router->linkHref($this->_mdl_name, 'revision', array('id'=>$pending_revision->id))."\" class=\"left link ctrl-link".($method == 'revision' ? ' selected' : '')."\">".__('workingRevision').' '.htmlVar($ruser->firstname.' '.$ruser->lastname)."</a>";
+      // save working revision
+      if($pending_revision->canEdit() and $method == 'revision') {
+        $controllers[] = "<span onclick=\"borromeo.saveRevision('".$this->_router->linkHref($this->_mdl_name, 'saveRevision', array('revision_id' => $pending_revision->id))."', 'editable', '".__('saveComplete')."', document.id('borromeo-doc-controllers').getElements('.icon_save')[0]);\" class=\"right link icon icon_save inactive\" title=\"".__('save')."\">".__('save')."</span>";
+      $controllers[] = "<span onclick=\"if(confirmSubmit('".jsVar(__('continueDeletingRevisionAlert'))."')) location.href='".$this->_router->linkHref($this->_mdl_name, 'deleteRevision', array('revision_id' => $pending_revision->id))."'\" class=\"right link icon icon_delete\" title=\"".__('delete')."\"></span>";
+      }
+      // merge working revision controller
+      if($pending_revision->canMerge() and $method == 'revision') {
+        $controllers[] = "<span onclick=\"".layerWindowCall(ucfirst(__('mergeRevision')), $this->_router->linkAjax($this->_mdl_name, 'formMergeRevision', array('revision_id' => $pending_revision->id)))."\" class=\"right link icon icon_merge\" title=\"".__('merge')."\"></span>";
+      }
+    }
+
+    // link to revision history
+    if($content->canManage()) {
+      $links[] = "<span onclick=\"".layerWindowCall(ucfirst(__('revisionHistory')), $this->_router->linkAjax($this->_mdl_name, 'revisionHistory', array('subchapter_id' => $subchapter->id)))."\" class=\"left ctrl-link link\">".__('revisionHistory')."</span>";
+    }
+
+    $view = new view();
+    $view->setTpl('borromeo_doc_controllers');
+    $view->assign('controllers', $controllers);
+    $view->assign('links', $links);
+
+    return $view->render();
+
+  }
+
+  /**
+   * @brief saves the revision text
+   */
+  public function saveRevision() {
+
+    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+
+    $revision_id = cleanInput('get', 'revision_id', 'int');
+    $revision = new docContentRevision($revision_id);
+
+    if(!$revision->id) {
+      error::raise404();
+    }
+
+    $content = $revision->content();
+
+    if(!$content->canRevise()) {
+      error::raise403();
+    }
+
+    $text = cleanInput('post', 'text', 'html');
+    $revision->text = $text;
+    $revision->saveData();
+
     exit();
 
   }
 
   /**
-   * @brief Create a new revision from another one
+   * @brief deletes a working revision
    */
-  public function createRevisionFrom() {
+  public function deleteRevision() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
-
-    require_once('docContentRevision.php');
 
     $revision_id = cleanInput('get', 'revision_id', 'int');
     $revision = new docContentRevision($revision_id);
 
-    if(!$revision->content()->canManage()) {
+    if(!$revision->id) {
+      error::raise404();
+    }
+
+    $content = $revision->content();
+
+    if(!$content->canRevise()) {
       error::raise403();
     }
 
-    $nrevision = new docContentRevision(null);
-    $nrevision->user = $revision->user;
-    $nrevision->content = $revision->content;
-    $nrevision->last_edit_date = $this->_registry->dtime->now('%Y-%m-%d %H:%i:%s');
-    $nrevision->text = $this->_registry->db->escapeString($revision->text);
-    $nrevision->saveData();
+    $subchapter = $content->subchapter();
+    $chapter = $subchapter->chapter();
+    $doc = $chapter->doc();
 
-    // copy media
-    foreach($this->_media as $classname) {
-      require_once($classname.'.php');
-      $classname::copyFromToRevision($revision->id, $nrevision->id, array());
-    }
+    $revision->delete();
 
-    header('Location: '.$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $revision->content()->subchapter()->chapter()->doc()->id, 'chapter' => $revision->content()->subchapter()->chapter()->id)));
-    exit;
-
-  }
-
-  /**
-   * @brief Visualization of a revision
-   */
-  public function viewRevision() {
-
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
-
-    require_once('docContentRevision.php');
-
-    $revision_id = cleanInput('get', 'revision_id', 'int');
-    $revision = new docContentRevision($revision_id);
-
-    if(!$revision->content()->canManage()) {
-      error::raise403();
-    }
-
-    $title = __('revision').'#'.$revision->id;
-    $controllers = array();
-    $ruser = new user($revision->user);
-    $author = htmlVar($ruser->lastname.' '.$ruser->firstname);
-
-    return $this->revisionTab($revision, $title, $controllers, $author);
-  
-  }
-
-  /**
-   * @brief Visualization of the revision tab
-   */
-  private function revisionTab($revision, $title, $controllers, $author) {
-
-    $media_tabs = array();
-    foreach($this->_media as $classname) {
-      require_once($classname.'.php');
-      $media_tabs[] = $classname::revisionTab($revision);
-    }
-
-    $view = new view();
-    $view->setTpl('borromeo_doc_revision');
-    $view->assign('title', $title);
-    $view->assign('author', $author);
-    $view->assign('controllers', $controllers);
-    $view->assign('revision', $revision);
-    $view->assign('media_tabs', $media_tabs);
-
-    return $view->render();
+    header('Location: '.$this->_router->linkHref($this->_mdl_name, 'doc', array('id'=>$doc->id, 'chapter'=>$chapter->id, 'subchapter'=>$subchapter->id)));
+    exit();
 
   }
 
@@ -832,7 +863,7 @@ class borromeoController extends controller {
   }
 
   /**
-   * @brief Action of merginga revision into the content
+   * @brief Action of merging a revision into the content
    */
   public function mergeRevision() {
 
@@ -854,7 +885,9 @@ class borromeoController extends controller {
     $content->saveData();
     $content->updateLastEdit();
 
-    $doc = $content->subchapter()->chapter()->doc();
+    $subchapter = $content->subchapter();
+    $chapter = $subchapter->chapter();
+    $doc = $chapter->doc();
     $doc->updateLastEdit();
 
     $revision->merged = 1;
@@ -863,382 +896,226 @@ class borromeoController extends controller {
     $revision->merged_comment = cleanInput('post', 'comment', 'string');
     $revision->saveData();
 
-    header('Location: '.$this->_router->linkHref($this->_mdl_name, 'doc', array('id'=>$doc->id, 'chapter' => $content->subchapter()->chapter()->id)));
+    header('Location: '.$this->_router->linkHref($this->_mdl_name, 'doc', array('id'=>$doc->id, 'chapter' => $chapter->id, 'subchapter' => $subchapter->id)));
     exit();
 
   }
 
+
   /**
-   * @brief Edit revision form
+   * @brief Gets the actual chapter and subchapter
+   * @param doc $doc the document
+   * @return chapter and subchapter objects as elements of an array
    */
-  public function editRevision() {
+  private function getChapterAndSubchapter($doc) {
 
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+    $chapter_id = cleanInput('get', 'chapter', 'int');
+    $subchapter_id = cleanInput('get', 'subchapter', 'int');
 
-    require_once('docContent.php');
-    require_once('docContentRevision.php');
-
-    $revision_id = cleanInput('get', 'revision_id', 'int');
-    // existing revision
-    if($revision_id) {
-      $revision = new docContentRevision($revision_id);
-      $content = $revision->content();
+    if(!$chapter_id and count($chapter_ids = $doc->chapters())) {
+      $chapter = new chapter($chapter_ids[0]);
     }
-    // new revision
     else {
-      $content_id = cleanInput('get', 'content_id', 'int');
-      $content = new docContent($content_id);
-      $revision = new docContentRevision($content->revision);
-    }
-    if(($revision_id && !$revision->canEdit()) or !$content->canRevise() or $content->active_pad) {
-      error::raise403();
+      $chapter = new chapter($chapter_id);
     }
 
-    // form text
-    $myform = new form('post', 'form_revision', array('validation' => true));
-    $sform = $myform->sform($this->_router->linkHref($this->_mdl_name, 'saveRevision'), 'text', array('upload' => true));
-    $sform .= $myform->hidden('revision_id', $revision_id);
-    $sform .= $myform->hidden('starting_revision_id', $revision->id);
-    $sform .= $myform->hidden('content_id', $content->id);
-    $text_form = $myform->ctextarea('text', $revision->text, __('text'), array('editor' => true, 'required' => true));
-    $text_form .= chargeEditor('.html');
-    $cform = $myform->cinput('submit', 'submit', __('submit'), '', null);
-    $cform .= $myform->cform();
-
-    // media forms
-    $media_forms = array();
-    foreach($this->_media as $classname) {
-      require_once($classname.'.php');
-      $media_forms[] = $classname::revisionForm($myform, $revision);
+    if(!$subchapter_id and $chapter->id and count($subchapter_ids = $chapter->subchapters())) {
+      $subchapter = new subchapter($subchapter_ids[0]);
+    }
+    else {
+      $subchapter = new subchapter($subchapter_id);
     }
 
+    return array($chapter, $subchapter);
+
+  }
+
+  public function doc() {
+
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
+
+    $doc_id = cleanInput('get', 'id', 'int');
+    $doc = new doc($doc_id);
+
+    // if not a document return 404
+    if(!$doc->id) {
+      error::raise404();
+    }
+
+    list($chapter, $subchapter) = $this->getChapterAndSubchapter($doc);
+
+    if(!$chapter->id) {
+      $content = __('noChapters');
+    }
+    elseif(!$subchapter->id) {
+      $content = '';
+    }
+    // a subchapter exists
+    else {
+      $view = new view();
+      $view->setTpl('borromeo_doc_subchapter');
+      $view->assign('subchapter', $subchapter);
+      $content = $view->render();
+    }
 
     $view = new view();
-    $view->setTpl('borromeo_doc_editrevision', array('css' => 'borromeo'));
+    $view->setTpl('borromeo_doc', array('css' => 'borromeo'));
+    $view->assign('doc', $doc);
+    $view->assign('chapter', $chapter);
     $view->assign('content', $content);
-    $view->assign('revision_id', $revision_id);
-    $view->assign('revision', $revision);
-    $view->assign('create_etherpad', anchor($this->_router->linkHref($this->_mdl_name, 'createPad', array('content_id' => $content->id)), __('createNewPad')));
-    $view->assign('sform', $sform);
-    $view->assign('text_form', $text_form);
-    $view->assign('cform', $cform);
-    $view->assign('media_forms', $media_forms);
 
     return $view->render();
 
   }
 
-  public function createPad() {
+  public function revision() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('docContent.php');
-    require_once('docContentRevision.php');
-    require_once(ABS_PHPLIB.DS.'etherpad-lite-client.php');
+    $this->_registry->addJs(REL_JSLIB.'/ckeditor/ckeditor.js');
 
-    $content_id = cleanInput('get', 'content_id', 'int');
-    $content = new docContent($content_id);
+    $revision_id = cleanInput('get', 'id', 'int');
+    $revision = new docContentRevision($revision_id);
+
+    if(!$revision->id) {
+      error::raise404();
+    }
+
+    $content = $revision->content();
+
+    if(!$content->canRevise()) {
+      error::raise403();
+    }
+
+    $subchapter = $content->subchapter();
+    $chapter = $subchapter->chapter();
+    $doc = $chapter->doc();
+
+    $view = new view();
+    $view->setTpl('borromeo_doc_revision', array('css' => 'borromeo'));
+    $view->assign('doc', $doc);
+    $view->assign('chapter', $chapter);
+    $view->assign('subchapter', $subchapter);
+    $view->assign('revision', $revision);
+    $view->assign('can_edit', $revision->canEdit());
+
+    return $view->render();
+
+  }
+
+  public function revisionHistory() {
+
+    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+
+    $subchapter_id = cleanInput('get', 'subchapter_id', 'int');
+    $subchapter = new subchapter($subchapter_id);
+    $content = $subchapter->content();
+
+    if(!$content->canManage()) {
+      error::raise403();
+    }
+
+    $revisions = docContentRevision::get(array('where' => "content='".$content->id."' AND merged IS NOT NULL", 'order' => 'merged_date DESC'));
     $current_revision = new docContentRevision($content->revision);
     $pending_revision = $content->pendingRevision();
 
-    $text = $pending_revision->id ? $pending_revision->text : $current_revision->text;
+    $can_create = $pending_revision->id ? false : true;
 
-    $text = preg_replace("#\t#", "", $text);
-    $text = preg_replace("#\r\n#", "", $text);
+    $view = new view();
+    $view->setTpl('borromeo_doc_revision_history', array('css' => 'borromeo'));
+    $view->assign('subchapter', $subchapter);
+    $view->assign('revisions', $revisions);
+    $view->assign('current_revision', $current_revision);
+    $view->assign('view_url', $this->_router->linkAjax($this->_mdl_name, 'viewRevision'));
+    $view->assign('registry', $this->_registry);
+    $view->assign('can_create', $can_create);
+    $view->assign('create_from_url', $this->_router->linkHref($this->_mdl_name, 'createRevisionFrom'));
 
-    $link_error = $this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id));
+    return $view->render();
 
-    if(!$content->canManage()) {
-      error::raise403();
-    }
-
-    $instance = new EtherpadLiteClient($this->_etherpad_api_key, $this->_etherpad_api_url);
-
-    // Step 1, get GroupID of the userID where userID is OUR userID and NOT the userID used by Etherpad
-    try {
-      $mappedGroup = $instance->createGroupIfNotExistsFor($content->id);
-      $groupID = $mappedGroup->groupID;
-    } 
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadGroup'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-
-    // Create a session
-    /* get Mapped Author ID based on a value from your web application such as the userID */
-    try {
-      $author = $instance->createAuthorIfNotExistsFor($this->_registry->user->id, $this->_registry->user->username); 
-      $authorID = $author->authorID;
-    } 
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadAuthor'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-    $validUntil = mktime(0, 0, 0, date("m"), date("d")+1, date("y")); // One day in the future
-    $sessionID = $instance->createSession($groupID, $authorID, $validUntil);
-    $sessionID = $sessionID->sessionID;
-    $_SESSION['borromeo_pad_sid'] = $sessionID;
-    echo $sessionID;
-    setcookie("sessionID", $sessionID, time()+3600, "/");
-    try {
-      $newPad = $instance->createGroupPad($groupID, __('realtimeRevision'), ''); 
-      $padID = $newPad->padID;
-      $instance->setHtml($padID, "<html><head></head><body>".$text."</body></html>");
-      echo "Created new pad with padID: $padID\n\n";
-      $content->active_pad = $padID;
-      $content->saveData();
-
-    }
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadPad'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id)));
-    exit();
-
-  }
-  
-  public function deletePad() {
-
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
-
-    require_once('docContent.php');
-    require_once('docContentRevision.php');
-    require_once(ABS_PHPLIB.DS.'etherpad-lite-client.php');
-
-    $content_id = cleanInput('get', 'content_id', 'int');
-    $content = new docContent($content_id);
-    $pad_id = cleanInput('get', 'pad_id', 'string');
-
-    if(!$content->canManage()) {
-      error::raise403();
-    }
-
-    $link_error = $this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id));
-
-    $instance = new EtherpadLiteClient($this->_etherpad_api_key, $this->_etherpad_api_url);
-
-    // Step 1, get GroupID of the userID where userID is OUR userID and NOT the userID used by Etherpad
-    try {
-      $mappedGroup = $instance->createGroupIfNotExistsFor($content->id);
-      $groupID = $mappedGroup->groupID;
-    } 
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadGroup'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-
-    // Create a session
-    /* get Mapped Author ID based on a value from your web application such as the userID */
-    try {
-      $author = $instance->createAuthorIfNotExistsFor($this->_registry->user->id, $this->_registry->user->username); 
-      $authorID = $author->authorID;
-    } 
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadAuthor'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-    
-    if(!$_COOKIE['sessionID']) {
-      $validUntil = mktime(0, 0, 0, date("m"), date("d")+1, date("y")); // One day in the future
-      $sessionID = $instance->createSession($groupID, $authorID, $validUntil);
-      $sessionID = $sessionID->sessionID;
-      setcookie("sessionID", $sessionID, time()+3600, "/");
-    }
-    try {
-      $instance->deletePad($pad_id); 
-      $content->active_pad = '';
-      $content->saveData();
-
-    }
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantDeleteEtherpadPad'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id)));
-    exit();
-
-  }
-
-  public function mergePad() {
-
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
-
-    require_once('docContent.php');
-    require_once('docContentRevision.php');
-    require_once(ABS_PHPLIB.DS.'etherpad-lite-client.php');
-
-    $content_id = cleanInput('get', 'content_id', 'int');
-    $content = new docContent($content_id);
-    $pad_id = cleanInput('get', 'pad_id', 'string');
-
-    if(!$content->canManage()) {
-      error::raise403();
-    }
-
-    $link_error = $this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id));
-
-    $instance = new EtherpadLiteClient($this->_etherpad_api_key, $this->_etherpad_api_url);
-
-    // Step 1, get GroupID of the userID where userID is OUR userID and NOT the userID used by Etherpad
-    try {
-      $mappedGroup = $instance->createGroupIfNotExistsFor($content->id);
-      $groupID = $mappedGroup->groupID;
-    } 
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadGroup'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-
-    // Create a session
-    /* get Mapped Author ID based on a value from your web application such as the userID */
-    try {
-      $author = $instance->createAuthorIfNotExistsFor($this->_registry->user->id, $this->_registry->user->username); 
-      $authorID = $author->authorID;
-    } 
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantCreateEtherpadAuthor'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-    
-    if(!$_COOKIE['sessionID']) {
-      $validUntil = mktime(0, 0, 0, date("m"), date("d")+1, date("y")); // One day in the future
-      $sessionID = $instance->createSession($groupID, $authorID, $validUntil);
-      $sessionID = $sessionID->sessionID;
-      setcookie("sessionID", $sessionID, time()+3600, "/");
-    }
-    try {
-      $htmlObj = $instance->getHtml($pad_id); 
-
-      $current_revision = new docContentRevision($content->revision);
-      $pending_revision = $content->pendingRevision();
-      if($pending_revision->id) {
-        $pending_revision->text = $htmlObj->html;
-        $pending_revision->saveData();
-        $pending_revision->updateLastEdit();
-      }
-      else {
-        $revision = new docContentRevision(null);
-        $revision->content = $content->id;
-        $revision->user = $this->_registry->user->id;
-        $revision->text = $htmlObj->html;
-        $revision->saveData();
-        $revision->updateLastEdit();
-      }
-
-      $instance->deletePad($pad_id); 
-      $content->active_pad = '';
-      $content->saveData();
-
-    }
-    catch (Exception $e) {
-      exit(Error::errorMessage(array(
-        'message' => __('cantMergeEtherpadPad'). ' error: '.$e->getMessage(),
-        'hint' => __('contactServerAdmin')
-      ), $link_error));
-    }
-
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id)));
-    exit();
   }
 
   /**
-   * @brief Save a revision
+   * @brief Visualization of a revision
    */
-  public function saveRevision() {
+  public function viewRevision() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('docContent.php');
-    require_once('docContentRevision.php');
-
-    $revision_id = cleanInput('post', 'revision_id', 'int');
+    $revision_id = cleanInput('get', 'revision_id', 'int');
     $revision = new docContentRevision($revision_id);
 
-    $starting_revision_id = cleanInput('post', 'starting_revision_id', 'int');
-    $starting_revision = new docContentRevision($starting_revision_id);
-
-    $content_id = cleanInput('post', 'content_id', 'int');
-    $content = new docContent($content_id);
-
-    if(!$content->canRevise() or ($revision_id and !$revision->canEdit())) {
+    if(!$revision->content()->canManage()) {
       error::raise403();
     }
 
-    $text = cleanInput('post', 'text', 'html');
+    $title = __('revision').'#'.$revision->id;
+    $ruser = new user($revision->user);
+    $author = htmlVar($ruser->lastname.' '.$ruser->firstname);
 
-    $revision->content = $content->id;
-    if(!$revision->id) {
-      $revision->user = $this->_registry->user->id;
-    }
-    $revision->text = $text;
-    $revision->saveData();
-    $revision->updateLastEdit();
+    $view = new view();
+    $view->setTpl('borromeo_doc_revision_view');
+    $view->assign('title', $title);
+    $view->assign('revision', $revision);
+    $view->assign('author', $author);
 
-    foreach($this->_media as $classname) {
-      require_once($classname.'.php');
-      $res = $classname::saveRevision($revision, $starting_revision);
-    }
-
-    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $content->subchapter()->chapter()->doc()->id, 'chapter' => $content->subchapter()->chapter()->id)));
-    exit();
+    return $view->render();
 
   }
 
   /**
-   * @brief update the order of chapters and subchapters (dragging)
-   * @return boolean result of the opertation
+   * @brief Create a new revision from another one
    */
-  public function applyIndexOrder() {
+  public function createRevisionFrom() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('subchapter.php');
-    require_once('chapter.php');
-    require_once('doc.php');
+    $revision_id = cleanInput('get', 'revision_id', 'int');
+    $revision = new docContentRevision($revision_id);
 
-    $doc_id = cleanInput('get', 'doc_id', 'int');
-    $doc = new doc($doc_id);
-
-    if(!$doc->canManage()) {
+    if(!$revision->content()->canManage()) {
       error::raise403();
     }
 
-    $chapters_str = cleanInput('post', 'chapters', 'string', array('escape' => false));
-    $subchapters_str = cleanInput('post', 'subchapters', 'string', array('escape' => false));
-    $slists_str = cleanInput('post', 'slists', 'string', array('escape' => false));
+    $nrevision = new docContentRevision(null);
+    $nrevision->user = $revision->user;
+    $nrevision->content = $revision->content;
+    $nrevision->last_edit_date = $this->_registry->dtime->now('%Y-%m-%d %H:%i:%s');
+    $nrevision->text = $this->_registry->db->escapeString($revision->text);
+    $nrevision->saveData();
 
-    $chapters_order = json_decode($chapters_str);
-    $subchapters_order = json_decode($subchapters_str);
-    $slists = json_decode($slists_str);
+    header('Location: '.$this->_router->linkHref($this->_mdl_name, 'revision', array('id' => $nrevision->id)));
+    exit;
 
-    $res = chapter::applyOrder($chapters_order);
-    $res = $res and subchapter::applyOrder($subchapters_order, $slists);
+  }
 
-    if($res) {
-      $doc->updateLastEdit();
+  /**
+   * @brief creates a new revision
+   */
+  public function createRevision() {
+
+    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+
+    $content_id = cleanInput('get', 'content_id', 'int');
+    $content = new docContent($content_id);
+    $pending_revision = $content->pendingRevision();
+
+    if(!$content->canRevise() or $pending_revision->id) {
+      error::raise403();
     }
 
-    return $res;
+    $content_revision = new docContentRevision($content->revision);
 
+    $revision = new docContentRevision(null);
+    $revision->text = $this->_registry->db->escapeString($content_revision->text);
+    $revision->user = $this->_registry->user->id;
+    $revision->content = $content->id;
+    $revision->last_edit_date = $this->_registry->dtime->now('%Y-%m-%d %H:%i:%s');
+
+    $revision->saveData();
+
+    header('Location: '.$this->_router->linkHref($this->_mdl_name, 'revision', array('id' => $revision->id)));
+    exit();
   }
 
   /**
@@ -1278,7 +1155,7 @@ class borromeoController extends controller {
       $insert = true;
     }
 
-    $form = $at->editFields(array('insert'=>$insert, 'f_s'=>$f_s, 'action'=>$this->_router->linkHref($this->_mdl_name, 'saveChapter', array('doc_id' => $doc_id))));
+    $form = $at->editFields(array('insert'=>$insert, 'f_s'=>$f_s, 'action'=>$this->_router->linkAjax($this->_mdl_name, 'saveChapter', array('doc_id' => $doc_id))));
 
     $form .= "<script>
                 $$('.inside_record').each(function(f) {
@@ -1288,7 +1165,7 @@ class borromeoController extends controller {
                   f.store('collapsed', true);
                   legend.addEvent('click', function() {
                     if(f.retrieve('collapsed')) {
-                      f.getChildren('label, div').setStyle('display', 'block');
+                      f.getChildren('label, div').setStyle('display', 'inline-block');
                       f.getChildren('br').setStyle('display', 'inline');
                       f.store('collapsed', false);
                     }
@@ -1321,13 +1198,41 @@ class borromeoController extends controller {
       error::raise403();
     }
 
+    $insert = $_POST['id'][0] ? false : true;
+
     $at = chapter::adminTable($doc);
 
-    $at->saveFields('chapter');
+    $result = $at->saveFields('chapter');
+
+    if($insert) {
+      mkdir(ABS_UPLOAD.DS.'doc'.DS.$doc->id.DS.$result[0], 0755, true);
+    }
 
     $doc->updateLastEdit();
 
     header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $doc_id)));
+    exit();
+
+  }
+
+
+  public function deleteChapter() {
+
+    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+
+    $chapter_id = cleanInput('get', 'chapter_id', 'int');
+    $chapter = new chapter($chapter_id);
+    if(!$chapter->id) {
+      error::raise404();
+    }
+    $doc = $chapter->doc();
+    if(!$doc->canManage()) {
+      error::raise403();
+    }
+
+    $chapter->delete();
+
+    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $doc->id)));
     exit();
 
   }
@@ -1373,7 +1278,7 @@ class borromeoController extends controller {
       $insert = true;
     }
 
-    $form = $at->editFields(array('insert'=>$insert, 'f_s'=>$f_s, 'action'=>$this->_router->linkHref($this->_mdl_name, 'saveSubchapter', array('doc_id' => $doc_id, 'chapter_id' => $chapter_id))));
+    $form = $at->editFields(array('insert'=>$insert, 'f_s'=>$f_s, 'action'=>$this->_router->linkAjax($this->_mdl_name, 'saveSubchapter', array('doc_id' => $doc_id, 'chapter_id' => $chapter_id))));
 
     $form .= "<script>
                 $$('.inside_record').each(function(f) {
@@ -1400,19 +1305,17 @@ class borromeoController extends controller {
   }
 
   /**
-   * @brief Saves a chapter record
+   * @brief Saves a subchapter record
+   * @description Creates a new subchapter, a new empty content and a working revision, or modifies a subchapter. Updates doc last edit.
    */
   public function saveSubchapter() {
 
     access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
 
-    require_once('docContent.php');
-    require_once('subchapter.php');
-    require_once('chapter.php');
-    require_once('doc.php');
+    $insert = !$_POST['id'][0] ? true : false;
 
     $doc_id = cleanInput('get', 'doc_id', 'int');
-    $chapter_id = cleanInput('get', 'doc_id', 'int');
+    $chapter_id = cleanInput('get', 'chapter_id', 'int');
     $doc = new doc($doc_id);
     $chapter = new chapter($chapter_id);
 
@@ -1424,7 +1327,10 @@ class borromeoController extends controller {
 
     $sid_a = $at->saveFields('subchapter');
 
-    docContent::createEmpty($sid_a[0]);
+    if($insert) {
+      $content_id = docContent::createEmpty($sid_a[0]);
+      mkdir(ABS_UPLOAD.DS.'doc'.DS.$doc->id.DS.$chapter->id.DS.$sid_a[0], 0755, true);
+    }
 
     $doc->updateLastEdit();
 
@@ -1432,6 +1338,29 @@ class borromeoController extends controller {
     exit();
 
   }
+
+
+  public function deleteSubchapter() {
+
+    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+
+    $subchapter_id = cleanInput('get', 'subchapter_id', 'int');
+    $subchapter = new subchapter($subchapter_id);
+    if(!$subchapter->id) {
+      error::raise404();
+    }
+    $doc = $subchapter->chapter()->doc();
+    if(!$doc->canManage()) {
+      error::raise403();
+    }
+
+    $subchapter->delete();
+
+    header("Location: ".$this->_router->linkHref($this->_mdl_name, 'doc', array('id' => $doc->id)));
+    exit();
+
+  }
+
 
   /**
    * @brief Documents category backoffice
@@ -1465,8 +1394,6 @@ class borromeoController extends controller {
 
     access::check($this->_class_privilege, array($this->_admin_doc_privilege, $this->_admin_insert_doc_privilege), array("exitOnFailure"=>true));
 
-    require_once('doc.php');
-
     $at = doc::adminTable($this);
 
     $table = $at->manage();
@@ -1479,6 +1406,47 @@ class borromeoController extends controller {
 
   }
 
-}
+  /**
+   * @brief Public annotation backoffice
+   *
+   * @access public
+   * @return public annotation backoffice
+   */
+  public function managePublicAnnotation() {
 
-?>
+    access::check($this->_class_privilege, array($this->_admin_doc_privilege, $this->_admin_note_publication_privilege), array("exitOnFailure"=>true));
+
+    $s_fields = array(
+      "published"=>array(
+        "type"=>"bool",
+        "required"=>true,
+        "true_label"=>__("yes"),
+        "false_label"=>__("no")	
+      )
+    );
+
+    $f_keys = array(
+      'content' => array(
+        "table"=>TBL_B_DOC_CONTENT,
+        "field"=>"id",
+        "where"=>"",
+        "order"=>""
+      )
+    );
+
+    $at = new docContentPublicNoteAdminTable(TBL_B_DOC_CONTENT_PUBLIC_NOTE, array());
+    $at->setSpecialFields($s_fields);
+    $at->setForeignKeys($f_keys);
+
+    $table = $at->manage();
+
+    $this->_view->setTpl('manage_table');
+    $this->_view->assign('title', ucfirst(__("managePublicAnnotation")));
+    $this->_view->assign('table', $table);
+
+    return $this->_view->render();
+
+  }
+
+
+}

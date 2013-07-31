@@ -32,6 +32,11 @@ class docContent extends model {
   private $_controller;
 
   /**
+   * @revision actual content revision
+   */
+  private $_revision;
+
+  /**
    * @brief Constructs a document content instance
    * @param int $id doc content identifier
    * 
@@ -43,6 +48,8 @@ class docContent extends model {
     $this->_tbl_data = TBL_B_DOC_CONTENT;
 
     parent::__construct($id);
+
+    $this->_revision = new docContentRevision($this->revision);
 
   }
 
@@ -128,6 +135,14 @@ class docContent extends model {
 
   }
 
+  /**
+   * @brief Returns the actual content revision
+   * @return docContentRevision instance
+   */
+  public function revision() {
+    return $this->_revision;
+  }
+
   public static function createEmpty($subchapter_id) {
 
     $registry = registry::instance();
@@ -175,8 +190,6 @@ class docContent extends model {
    */
   public function subchapter() {
 
-    require_once('subchapter.php');
-
     return new subchapter($this->subchapter);
 
   }
@@ -186,8 +199,6 @@ class docContent extends model {
    * @return the pending revision or null
    */
   public function pendingRevision() {
-
-    require_once('docContentRevision.php');
 
     $res = docContentRevision::get(array('where' => "content='".$this->id."' && merged IS NULL"));
     if($res and count($res)) {
@@ -214,7 +225,7 @@ class docContent extends model {
    * @return path
    */
   public function path() {
-    return $this->subchapter()->chapter()->doc()->path().DS.'content'.DS.$this->id;
+    return $this->subchapter()->path().DS.'content';
   }
 
   /**
@@ -227,8 +238,6 @@ class docContent extends model {
       error::raise403();
     }
 
-    require_once('docContentRevision.php');
-
     // delete associated revisions
     $revisions = docContentRevision::get(array('where' => "content='".$this->id."'"));
     if(count($revisions)) {
@@ -238,7 +247,6 @@ class docContent extends model {
     }
 
     // delete associated notes
-    require_once('docContentNote.php');
     $notes = docContentNote::getFromContent($this->id);
     foreach($notes as $note) {
       $note->delete();

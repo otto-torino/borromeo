@@ -12,7 +12,7 @@
     <? foreach($doc->chapters() as $chapter_id): ?>
       <? $chapter = new chapter($chapter_id); ?>
       <li data-id="<?= $chapter->id ?>">
-        <a href="<?= $view_chapter_url.'chapter/'.$chapter->id ?>"><?= htmlVar($chapter->title) ?></a>
+        <?= htmlVar($chapter->title) ?>
         <? if($doc->canManage()): ?>
           <div class="right">
             <span class="move icon_small icon_sort_small" title="<?= __('sort') ?>"></span>
@@ -27,7 +27,7 @@
             <? foreach($chapter->subchapters() as $subchapter_id): ?>
               <? $subchapter = new subchapter($subchapter_id); ?>
               <li data-id="<?= $subchapter->id ?>">
-                <?= htmlVar($subchapter->title) ?>
+                <a href="<?= $view_subchapter_url.'chapter/'.$chapter->id.'/subchapter/'.$subchapter->id ?>"><?= htmlVar($subchapter->title) ?></a>
                 <? if($doc->canManage()): ?>
                 <div class="right">
                   <span class="move icon_small icon_sort_small" title="<?= __('sort') ?>"></span>
@@ -54,10 +54,10 @@
         window.addEvent('scroll', function() {
           var scroll = window.getScroll().y;
           if(scroll > scroll_offset) {
-            myscrollfx.start('margin-top', (scroll + 20) - scroll_offset);
+            myscrollfx.start('margin-top', (scroll + 50) - scroll_offset);
           }
           else {
-            myscrollfx.start('margin-top', 10);
+            myscrollfx.start('margin-top', 40);
           }
         })
       })()
@@ -82,6 +82,7 @@
 
       }
 
+      <? if($doc->canManage()): ?>
       var mysortables1 = new Sortables(document.getElements('.sortable_1'), {
           handle: '.move',
           clone: false,
@@ -94,6 +95,7 @@
           revert: true,
           onComplete: applyOrder
       });
+      <? endif ?>
     </script>
   <? endif ?>
 </section>
