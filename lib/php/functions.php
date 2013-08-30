@@ -212,6 +212,8 @@ function floatcomp($a, $comp, $b, $decimals=2) {
  */
 function chargeEditor($selector) {
 
+  return ''; // ckeditor
+
 	$buffer = "<script>";
 	$buffer .= prepareJsEditor($selector);
 	$buffer .= "</script>";

@@ -1,6 +1,6 @@
 <h3><?= htmlVar($subchapter->title) ?></h3>
 <?= htmlVar($subchapter->content()->revision()->text) ?>
-<p>
+<p class="clear">
 <? if($prev = $subchapter->getPrevious()): ?>
   <a class="navigation navigation-prev" href="<?= $prev->getUrl() ?>"><?= htmlVar($prev->title )?></a>
 <? endif ?>

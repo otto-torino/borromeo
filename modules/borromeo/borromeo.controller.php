@@ -185,7 +185,8 @@ class borromeoController extends controller {
 
   public function docPad() {
 
-    access::check('main', $this->_registry->private_view_privilege, array("exitOnFailure"=>true));
+    // @todo check privileges
+    access::check('main', $this->_registry->public_view_privilege, array("exitOnFailure"=>true));
 
     $link_error = $this->_router->linkHref(null, null);
 
@@ -274,6 +275,7 @@ class borromeoController extends controller {
 
     $view = new view();
     $view->setTpl('borromeo_doc_pad');
+    $view->assign('content', $content);
     $view->assign('pad_url', $pad_url);
 
     return $view->render();
